@@ -129,79 +129,101 @@ void fadeall() {
   }
 }
 
-void running(){
+void running_all(){
 int i, c, counter, ledIndex;
-int hp_start, hp_finish ;
-bool no_movement;
+int hp_start[LED_STRINGS], hp_finish[LED_STRINGS] ;
+bool no_movement[LED_STRINGS];
+bool done;
+
+done = false;
 
 for(c = 0; c < LED_STRINGS; c++) {
-  if (horse_pos[c][1] == horse_pos[c][0]) no_movement = true;
-  else no_movement = false;
-  hp_start = horse_pos[c][1] - RUN_LEDS + 1;
- // if (no_movement) hp_finish = horse_pos[c][0] - RUN_LEDS;
- // else hp_finish = horse_pos[c][0] - RUN_LEDS + 1;
-  hp_finish = horse_pos[c][0] - RUN_LEDS + 1;
-  counter = RUN_LEDS;
-  if(hp_start < 0) {
-   // hp_start = 0;
-  }
-  if(hp_finish < 0) {
-   // hp_finish = 0;
-  }
- // if(no_movement) hp_start--; //trying to deal with a non-movement  
-  if(c == 5) {
-    Serial.print("Lane: ");
-  Serial.println(c + 1);
-  Serial.print("Horse Pos Start: ");
-  Serial.println(horse_pos[c][1]);
-  Serial.print("Horse Pos Finish: ");
-  Serial.println(horse_pos[c][0]);  
-  Serial.print("Start: ");
-  Serial.println(hp_start);
-  Serial.print("Finish: ");
-  Serial.println(hp_finish);
-  Serial.print("Counter: ");
-  Serial.println(counter);
-  }
-  while(hp_start <= hp_finish){
-    for( i = 0; i < counter; i++ ) {
-      ledIndex = hp_start + i;
-      if( ledIndex >= 0) {
+  hp_start[c] = horse_pos[c][1] - RUN_LEDS + 1;
+  hp_finish[c] = horse_pos[c][0] - RUN_LEDS + 1;
+  no_movement[c] = false;
+
+}
+
+FastLED.clear(true);
+FastLED.show();
+
+while(!done){
+
+  for(c = 0; c < LED_STRINGS; c++) {
+    if (hp_start[c] > hp_finish[c]) {
+      no_movement[c] = true;
+      Serial.print(" Lane ");
+      Serial.print(c+1);
+      Serial.println(" Done: ");
+    }
+    else {
+      no_movement[c] = false;
+      Serial.print(" Lane ");
+      Serial.print(c+1);
+      Serial.print(" Not Done: ");      
+    }
+  
+    if(!no_movement[c]) {
+      counter = RUN_LEDS;
+ 
+    
+//      Serial.print("Lane: ");
+//      Serial.print(c + 1);
+      Serial.print(" Horse Pos St: ");
+      Serial.print(horse_pos[c][1]);
+      Serial.print(" F: ");
+      Serial.print(horse_pos[c][0]);  
+      Serial.print(" hp_start: ");
+      Serial.print(hp_start[c]);
+      Serial.print(" hp_finish: ");
+      Serial.print(hp_finish[c]);
+      Serial.print(" Counter: ");
+      Serial.println(counter);
+    
+      for( i = 0; i < counter; i++ ) {
+        ledIndex = hp_start[c] + i;
+        if( ledIndex >= 0) {
   //    Serial.print("LedIndex: ");
   //    Serial.println(ledIndex);
   //    Serial.print("i: ");
   //    Serial.println(i);
-        if ((i == 0) && (ledIndex > 0))  leds[c][ledIndex - 1] = CRGB::Black;
-  //    Serial.println("About to switch!");
-        switch(c) {
-          case 0: 
-              leds[0][ledIndex] = STRING1_COLOUR;
-              break;
-          case 1:
-              leds[1][ledIndex] = STRING2_COLOUR;
-              break;
-          case 2:
-              leds[2][ledIndex] = STRING3_COLOUR;
-              break;
-          case 3:
-              leds[3][ledIndex] = STRING4_COLOUR;
-              break;
-          case 4: 
-              leds[4][ledIndex] = STRING5_COLOUR;
-              break;
-          case 5: 
-              leds[5][ledIndex] = STRING6_COLOUR;
-              break;
+          if ((i == 0) && (ledIndex > 0))  leds[c][ledIndex - 1] = CRGB::Black;
+  //   Serial.println("About to switch!");
+          switch(c) {
+            case 0: 
+             leds[0][ledIndex] = STRING1_COLOUR;
+             break;
+            case 1:
+             leds[1][ledIndex] = STRING2_COLOUR;
+             break;
+            case 2:
+             leds[2][ledIndex] = STRING3_COLOUR;
+             break;
+            case 3:
+             leds[3][ledIndex] = STRING4_COLOUR;
+             break;
+            case 4: 
+             leds[4][ledIndex] = STRING5_COLOUR;
+             break;
+            case 5: 
+             leds[5][ledIndex] = STRING6_COLOUR;
+             break;
+          }
         }
       }
+      hp_start[c]++;
     }
-    FastLED.show();
-    my_delay(50);
-    hp_start++;
 
   }
-
+  FastLED.show();
+  my_delay(50);
+  done = true;
+  for(c = 0; c < LED_STRINGS; c++) {
+    if(no_movement[c] == false) done = false;
+  }
 }
+FastLED.show();
+my_delay(50);
 }
 
 
@@ -407,10 +429,16 @@ void loop() {
   if (!finish) {
       Serial.print("Currently Winning Lane: ");
       Serial.println(winner+1);
+      Serial.print("Current Position on Track: ");
+      Serial.println(winner_pos);
+      Serial.print("Previous Position on Track: ");
+      Serial.println(horse_pos[winner][1]);
   }
   
-  running(); //this will bump everyone along    
+  running_all(); //this will bump everyone along    
   
+  FastLED.show();
+  my_delay(50);
 
   while(buttonFlg[0] == 0) {
     toggle = !toggle;
