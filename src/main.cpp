@@ -1,9 +1,11 @@
 #include <FastLED.h>
+#include <Arduino.h>
 
 // Define the min macro
 #define min(a,b) ((a) < (b) ? (a) : (b))
 
 #define SHOW_LOOPS  5
+#define RACE_PAUSE 3
 #define BUTTON_PIN  34
 #define noOfButtons 1     //Exactly what it says; must be the same as the number of elements in buttonPins
 #define bounceDelay 20    //Minimum delay before regarding a button as being pressed and debounced
@@ -19,7 +21,7 @@
 #define TOT_LEDS    92
 #define RUN_LEDS   4
 #define STEPS       10
-#define LEVEL_UP     10
+#define LEVEL_UP     15
 #define MERCY_LEVEL 15
 #define MERCY_START 3
 #define minBrightness  40
@@ -38,6 +40,7 @@ CRGB leds[LED_STRINGS][TOT_LEDS];
 CRGB (*leds_ptr)[TOT_LEDS] = leds;
 
 long horse_pos[LED_STRINGS][2];
+int honour_board[LED_STRINGS];
 
 const uint8_t dataPins[LED_STRINGS] = {LED_PIN1, LED_PIN2, LED_PIN3, LED_PIN4, LED_PIN5, LED_PIN6};
 //CRGB led2[TOT_LEDS];
@@ -66,6 +69,7 @@ int i;
   FastLED.addLeds<LED_TYPE, LED_PIN6, COLOR_ORDER>(leds[5], TOT_LEDS).setCorrection(TypicalLEDStrip);
   FastLED.setBrightness(midBrightness);
   Serial.begin(115200);
+  for(i = 0; i < LED_STRINGS; i++) honour_board[i] = 0;
 }
 
 void chk_button() {
@@ -129,7 +133,7 @@ void fadeall() {
   }
 }
 
-void running_all(){
+void running_all(int ord[], int w1, bool fin){
 int i, c, counter, ledIndex;
 int hp_start[LED_STRINGS], hp_finish[LED_STRINGS] ;
 bool no_movement[LED_STRINGS];
@@ -152,15 +156,16 @@ while(!done){
   for(c = 0; c < LED_STRINGS; c++) {
     if (hp_start[c] > hp_finish[c]) {
       no_movement[c] = true;
-      Serial.print(" Lane ");
-      Serial.print(c+1);
-      Serial.println(" Done: ");
+//      Serial.print(" Lane ");
+//      Serial.print(c+1);
+//      Serial.println(" Done: ");
+      if((fin) && (c == w1)) done = true;
     }
     else {
       no_movement[c] = false;
-      Serial.print(" Lane ");
-      Serial.print(c+1);
-      Serial.print(" Not Done: ");      
+//      Serial.print(" Lane ");
+//      Serial.print(c+1);
+//      Serial.print(" Not Done: ");      
     }
   
     if(!no_movement[c]) {
@@ -169,16 +174,16 @@ while(!done){
     
 //      Serial.print("Lane: ");
 //      Serial.print(c + 1);
-      Serial.print(" Horse Pos St: ");
-      Serial.print(horse_pos[c][1]);
-      Serial.print(" F: ");
-      Serial.print(horse_pos[c][0]);  
-      Serial.print(" hp_start: ");
-      Serial.print(hp_start[c]);
-      Serial.print(" hp_finish: ");
-      Serial.print(hp_finish[c]);
-      Serial.print(" Counter: ");
-      Serial.println(counter);
+//      Serial.print(" Horse Pos St: ");
+//      Serial.print(horse_pos[c][1]);
+//      Serial.print(" F: ");
+//      Serial.print(horse_pos[c][0]);  
+//      Serial.print(" hp_start: ");
+//      Serial.print(hp_start[c]);
+//      Serial.print(" hp_finish: ");
+//      Serial.print(hp_finish[c]);
+//      Serial.print(" Counter: ");
+//      Serial.println(counter);
     
       for( i = 0; i < counter; i++ ) {
         ledIndex = hp_start[c] + i;
@@ -217,9 +222,11 @@ while(!done){
   }
   FastLED.show();
   my_delay(50);
-  done = true;
-  for(c = 0; c < LED_STRINGS; c++) {
-    if(no_movement[c] == false) done = false;
+  if(!done) {
+    done = true;
+    for(c = 0; c < LED_STRINGS; c++) {
+      if(no_movement[c] == false) done = false;
+    }
   }
 }
 FastLED.show();
@@ -234,7 +241,7 @@ int i, c;
     counter = w_pos;
   }
 
-  for(i= w_pos ; i> (w_pos - counter); i--){
+  for(i= w_pos ; i>= (w_pos - counter); i--){
     switch(w1) {
       case 0: 
               leds[0][i] = STRING1_COLOUR;
@@ -344,13 +351,32 @@ int i,j,k;
   }
 }
 
+void generate_unique_random_array(int arr[], int n) {
+    // Fill the array with values from 0 to n-1
+    for (int i = 0; i < n; i++) {
+        arr[i] = i;
+    }
+
+    // Shuffle the array using Fisher-Yates shuffle
+    for (int i = n - 1; i > 0; i--) {
+        int j = esp_random() % (i + 1);  // Pick a random index from 0 to i
+        // Swap arr[i] with the element at the random index
+        int temp = arr[i];
+        arr[i] = arr[j];
+        arr[j] = temp;
+    }
+}
+
 void loop() {
-  int i, step_count;
+  int i, j, step;
   bool finish = false, toggle = true;
   int winner = -1, helper = 0, rounds = 0;
   long winner_pos = 0;
+  int order[LED_STRINGS];
   
   Serial.println("Hat Day Racing...GiddyUp!!!!");
+  // Optional: Seed the random number generator for better randomness
+  randomSeed(analogRead(0));
   
   FastLED.clear();
   FastLED.show();
@@ -370,6 +396,8 @@ void loop() {
 
   cylon(SHOW_LOOPS);
   
+  Serial.println("Ready to Race!");
+
   while(buttonFlg[0] == 0) {
     FastLED.setBrightness(midBrightness);    
     startline();
@@ -399,59 +427,86 @@ void loop() {
 
   while(!finish) {
 
-    //for(step_count = 0; step_count < STEPS; step_count++){
-    //increment each horsey randomly
     buttonFlg[0] = 0;
     rounds++;
-    for(i = 0; i < LED_STRINGS; i++) {
+    generate_unique_random_array(order, LED_STRINGS);
+    //Serial.println("Order: ");
+    //for(i = 0; i < LED_STRINGS; i++) {
+    //  Serial.print(order[i]);
+    //  Serial.println();
+    //}
+    for(step = 0; step < LED_STRINGS; step++) {
+      i = order[step];    
       if((horse_pos[i][0] < (horse_pos[winner][0] - MERCY_LEVEL)) && (rounds > MERCY_START)) {
-        helper = LEVEL_UP;
+        helper = esp_random() % LEVEL_UP;
       }
       else {
         helper = 0;
       }
       horse_pos[i][1] = horse_pos[i][0];  //remember the value this lane was at.
-      horse_pos[i][0] = horse_pos[i][0] + helper + random(NUM_LEDS);
+      horse_pos[i][0] = horse_pos[i][0] + helper + esp_random() % NUM_LEDS;
       winner_pos = max(winner_pos,horse_pos[i][0]);
-      if (winner_pos == horse_pos[i][0]) {
-        winner = i;
-        if (winner_pos > (TOT_LEDS - 1)) {
-          Serial.print("Declaring Lane ");
-          Serial.print(i+1);
-          Serial.println(" as the Winner!");
-          finish = true;
-          winner_pos = TOT_LEDS - 1;
+      if( !finish ) {
+
+        if (winner_pos == horse_pos[i][0]) {
+          winner = i;
+
+          if (winner_pos > (TOT_LEDS - 2)) {
+            Serial.print("Declaring Lane ");
+            Serial.print(i+1);
+            Serial.println(" as the Winner!");
+
+            finish = true;
+            honour_board[winner]++;
+            Serial.println("Honour Board");
+            for(j = 0;j < LED_STRINGS;j++) {
+              Serial.print("Lane:");
+              Serial.print(j+1);
+              Serial.print(" ");
+              Serial.print(honour_board[j]);
+              Serial.print(" ");
+            }
+            Serial.println();                        
+            winner_pos = TOT_LEDS - 1;
+            horse_pos[winner][0] = TOT_LEDS - 1;
+          }
         }
       }
-      if (horse_pos[i][0] > (TOT_LEDS - 1)) horse_pos[i][0] = TOT_LEDS - 1;
+      if (finish) {
+        if (horse_pos[i][0] > (TOT_LEDS - 1)) horse_pos[i][0] = TOT_LEDS - 2;
+      }
     }
  
   if (!finish) {
-      Serial.print("Currently Winning Lane: ");
-      Serial.println(winner+1);
-      Serial.print("Current Position on Track: ");
-      Serial.println(winner_pos);
-      Serial.print("Previous Position on Track: ");
-      Serial.println(horse_pos[winner][1]);
+ /*     Serial.print("Currently Winning Lane: ");
+      Serial.print(winner+1);
+      Serial.print(" Position on Track: ");
+      Serial.print(winner_pos);
+      Serial.print(" Previous on Track: ");
+      Serial.println(horse_pos[winner][1]); */
   }
   
-  running_all(); //this will bump everyone along    
+  running_all(order, winner, finish); //this will bump everyone along    
   
   FastLED.show();
   my_delay(50);
 
-  while(buttonFlg[0] == 0) {
-    toggle = !toggle;
-    if(finish){
-      leader(winner, winner_pos, TOT_LEDS, toggle);
+  if (!finish) {
+    i = RACE_PAUSE * 4;
+    for(; i > 0; i--) {
+      toggle = !toggle;
+      leader(winner, winner_pos, RUN_LEDS - 1, toggle);
+      my_delay(250);     
     }
-    else {
-      leader(winner, winner_pos, RUN_LEDS, toggle);
-    }
-    my_delay(250); 
-    chk_button();
   }
- 
+  else {
+    while(buttonFlg[0] == 0) {
+     toggle = !toggle;
+      leader(winner, TOT_LEDS - 1, TOT_LEDS, toggle);
+      my_delay(250); 
+      chk_button();
+    }
+   }
   }
  } 
 
